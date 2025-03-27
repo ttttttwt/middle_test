@@ -29,13 +29,45 @@ dotenv.config();
 
 app.set('view engine', 'ejs');
 
+// Add this function before db connection
+async function initializeDatabase() {
+  try {
+    // Create tables if they don't exist
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS posts (
+        id SERIAL PRIMARY KEY,
+        subject VARCHAR(200) NOT NULL,
+        title VARCHAR(300) NOT NULL,
+        content VARCHAR(1000) NOT NULL
+      )
+    `);
+
+    // Check if table is empty
+    const result = await db.query("SELECT COUNT(*) FROM posts");
+    if (result.rows[0].count === '0') {
+      // Insert sample data
+      await db.query(`
+        INSERT INTO posts (subject, title, content) VALUES
+        ('Fitness', 'How to get fit', 'Eat healthy and exercise'),
+        ('Technology', 'Learning to Code', 'Start with the basics and practice daily'),
+        ('Travel', 'Visit Vietnam', 'Amazing culture and delicious food')
+      `);
+      console.log('Sample data inserted successfully');
+    }
+  } catch (err) {
+    console.error('Database initialization error:', err);
+  }
+}
 
 const db = new pg.Client({
   connectionString: process.env.DATABASE_URL
 });
-db.connect();
-
-
+db.connect()
+  .then(() => {
+    console.log('Database connected successfully');
+    return initializeDatabase();
+  })
+  .catch(err => console.error('Database connection error:', err));
 
 // Body parser middleware
 app.use(bodyParser.urlencoded({ extended: true }));
