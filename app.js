@@ -30,9 +30,8 @@ dotenv.config();
 app.set('view engine', 'ejs');
 
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false } // Render yêu cầu SSL
+const db = new pg.Client({
+  connectionString: process.env.DATABASE_URL
 });
 db.connect();
 
