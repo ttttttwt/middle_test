@@ -152,17 +152,12 @@ app.get("/posts/:postName", function(req, res){
 app.get("/edit/:postName", async function (req, res) {
   try {
     const requestedTitle = req.params.postName;
-
-    // Fetch the post from the database based on the post name
-    const result = await db.query("SELECT * FROM posts WHERE title = $1", [requestedTitle]);
-    const post = result.rows[0]; // Get the first row from the results
+    const result = await db.query("SELECT * FROM posts WHERE LOWER(title) = LOWER($1)", [requestedTitle]);
+    const post = result.rows[0];
 
     if (!post) {
-      // If no post is found with the given title, render an error page or redirect
       return res.status(404).send("Post not found");
     }
-
-    // Render the edit form with the fetched post data
     res.render("edit", { post: post });
   } catch (err) {
     console.error("Error fetching post for edit:", err);
@@ -174,11 +169,14 @@ app.get("/edit/:postName", async function (req, res) {
 app.post("/edit/:postName", async function (req, res) {
   try {
     const requestedTitle = req.params.postName;
+    const result = await db.query(
+      "UPDATE posts SET subject = $1, title = $2, content = $3 WHERE LOWER(title) = LOWER($4) RETURNING *",
+      [req.body.postSubject, req.body.postTitle, req.body.postBody, requestedTitle]
+    );
 
-    // Update the post in the database based on the post name
-    await db.query("UPDATE posts SET subject = $1, title = $2, content = $3 WHERE title = $4", [req.body.postSubject, req.body.postTitle, req.body.postBody, requestedTitle]);
-
-    // Redirect to the post detail page after successful update
+    if (result.rowCount === 0) {
+      return res.status(404).send("Post not found");
+    }
     res.redirect("/posts/" + _.lowerCase(req.body.postTitle));
   } catch (err) {
     console.error("Error updating post:", err);
@@ -186,55 +184,21 @@ app.post("/edit/:postName", async function (req, res) {
   }
 });
 
-
-/* 
-// Edit without database
-app.get("/edit/:postName", function (req, res) {
-  const requestedTitle = _.lowerCase(req.params.postName);
-  posts.forEach(function (post) {
-    const storedTitle = _.lowerCase(post.title);  // converts the post's title to lowercase for each post
-    // If current post title matches the requested title, it renders the "edit" view, passing the post data to it.
-    if (storedTitle === requestedTitle) {
-      res.render("edit", { post: post });}
-  });
-});
-
-// Edit post route - handle the form submission to update the post (when 'update' is clicked)
-app.post("/edit/:postName", function (req, res) {
-  const requestedTitle = _.lowerCase(req.params.postName);
-
-  posts.forEach (function (post, index) {
-    const storedTitle = _.lowerCase(post.title);
-    // If current post title matches the requested title, it updates the corresponding post in the posts array with the data received from the form (req.body). Then redirects the user to the URL for viewing the updated post.
-    if (storedTitle === requestedTitle) {
-      posts [index] = { subject: req.body.postSubject, title: req.body.postTitle, content: req.body.postBody };
-      res.redirect("/posts/" + _.lowerCase(req.body.postTitle));    
-    }
-  });
-});*/
-
-
-
-
-
-
 // Delete post route - handle post deletion
 app.get("/delete/:postName", async function (req, res) {
-  const requestedTitle = _.lowerCase(req.params.postName);
-
+  const requestedTitle = req.params.postName; // Remove _.lowerCase here
   try {
-    await db.query("DELETE FROM posts WHERE title = $1", [requestedTitle]);
+    const result = await db.query("DELETE FROM posts WHERE LOWER(title) = LOWER($1)", [requestedTitle]);
+    if (result.rowCount === 0) {
+      console.log(`No post found with title: ${requestedTitle}`);
+      return res.status(404).send("Post not found");
+    }
     res.redirect("/");
   } catch (err) {
     console.log(err);
+    res.status(500).send("Error deleting post");
   }
 });
-
-  /*posts = posts.filter(function (post) {  // Filter out the post to be deleted
-    return _.lowerCase(post.title) !== requestedTitle;    //return all the posts that don't match the requested title
-  });
-  res.redirect("/");
-});*/
 
 
 
